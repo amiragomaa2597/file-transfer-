@@ -1,0 +1,406 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using System.IO;
+using System.Xml.Linq;
+using System.Web;
+
+namespace lab11
+{
+
+
+    public partial class Form1 : Form
+    {
+        int last_list_was_selected; // 0 for left 1 for right
+        public Form1()
+        {
+            InitializeComponent();
+            last_list_was_selected = 0; // 0 for left 1 for right 
+            this.listbox_left.Items.AddRange(DriveInfo.GetDrives());
+            this.listbox_right.Items.AddRange(DriveInfo.GetDrives());
+        }
+
+        private void listbox_right_Click(object sender, EventArgs e)
+        {
+            last_list_was_selected = 1; // 0 for left 1 for right 
+            if (checkDot(listbox_right.SelectedItem.ToString()))
+            {
+                if (listbox_right.SelectedItem != null)
+                {
+                    text_box_right.Text = listbox_right.SelectedItem.ToString();
+                    var string1 = text_box_right.Text;
+
+                    if (!string1.Contains(@"\\"))
+                    {
+
+                        string1 = string1.Insert(2, @"\");
+
+                    }
+                    text_box_right.Text = string1;
+                }
+            }
+        }
+
+        private void listbox_left_Click(object sender, EventArgs e)
+        {
+            last_list_was_selected = 0; // 0 for left 1 for right
+            if (checkDot(listbox_left.SelectedItem.ToString()))
+            {
+
+               
+                if (listbox_left.SelectedItem != null)
+                {
+                    text_box_left.Text = listbox_left.SelectedItem.ToString();
+                    var string1 = text_box_left.Text;
+                    if (!string1.Contains(@"\\"))
+                    {
+
+                        string1 = string1.Insert(2, @"\");
+                    }
+                    text_box_left.Text = string1;
+                }
+            }
+        }
+
+        private void listbox_left_DoubleClick(object sender, EventArgs e)
+        {
+            last_list_was_selected = 0; // 0 for left 1 for right 
+            if (checkDot(listbox_left.SelectedItem.ToString()))
+            {
+                
+                if (IsPathDirectory(listbox_left.SelectedItem.ToString()))
+                {
+                    string[] allfiles = Directory.GetFileSystemEntries(listbox_left.SelectedItem.ToString());
+
+                    listbox_left.Items.Clear();
+                    listbox_left.Items.AddRange(allfiles);
+                    Dot_left();
+
+                }
+                else
+                {
+                    MessageBox.Show("can't be opened it's a File");
+                }
+            }
+        }
+        private void listbox_right_DoubleClick(object sender, EventArgs e)
+        {
+            last_list_was_selected = 1; // 0 for left 1 for right
+            if (checkDot(listbox_right.SelectedItem.ToString()))
+            {
+                 
+                if (IsPathDirectory(listbox_right.SelectedItem.ToString()))
+                {
+
+                    string[] allfiles = Directory.GetFileSystemEntries(listbox_right.SelectedItem.ToString());
+
+                    listbox_right.Items.Clear();
+                    listbox_right.Items.AddRange(allfiles);
+
+                    Dot_right();
+
+                }
+                else
+                {
+                    MessageBox.Show("can't be opened it's a File");
+                }
+            }
+        }
+
+        public bool IsPathDirectory(string path)
+        {
+            if (path == null) throw new ArgumentNullException("path");
+            path = path.Trim();
+
+            if (Directory.Exists(path))
+                return true;
+
+            if (File.Exists(path))
+                return false;
+
+            // neither file nor directory exists. guess intention
+
+            // if has trailing slash then it's a directory
+            if (new[] { "\\", "/" }.Any(x => path.EndsWith(x)))
+                return true; // ends with slash
+
+            // if has extension then its a file; directory otherwise
+            return string.IsNullOrWhiteSpace(Path.GetExtension(path));
+        }
+        private void move_to_left_Click(object sender, EventArgs e)
+        {
+
+
+            string sourceDirectory = text_box_right.Text;
+            string destinationDirectory = text_box_left.Text;
+            if (!IsPathDirectory(destinationDirectory))
+            {
+                text_box_left.Text = Directory.GetParent(text_box_left.Text).ToString();
+            }
+            if (!IsPathDirectory(sourceDirectory) && IsPathDirectory(destinationDirectory)) //source will be file and distnation will be folder
+            {
+
+                destinationDirectory = text_box_left.Text + "/" + Path.GetFileName(text_box_right.Text);
+                File.Move(sourceDirectory, destinationDirectory);
+                string[] allfiles = Directory.GetFileSystemEntries(text_box_left.Text);
+
+                listbox_left.Items.Clear();
+                listbox_left.Items.AddRange(allfiles);
+                Dot_left();
+                text_box_right.Text = Directory.GetParent(text_box_right.Text).ToString();
+                allfiles = Directory.GetFileSystemEntries(text_box_right.Text);
+                listbox_right.Items.Clear();
+                listbox_right.Items.AddRange(allfiles);
+                Dot_right();
+            }
+
+
+
+        }
+        private void move_to_right_Click(object sender, EventArgs e)
+        {
+            string sourceDirectory = text_box_left.Text;
+            string destinationDirectory = text_box_right.Text;
+            if (!IsPathDirectory(destinationDirectory))
+            {
+                text_box_right.Text = Directory.GetParent(text_box_right.Text).ToString();
+            }
+            if (!IsPathDirectory(sourceDirectory) && IsPathDirectory(destinationDirectory)) //source will be file and distnation will be folder
+            {
+                destinationDirectory = text_box_right.Text + "/" + Path.GetFileName(text_box_left.Text);
+                File.Move(sourceDirectory, destinationDirectory);
+                string[] allfiles = Directory.GetFileSystemEntries(text_box_right.Text);
+                listbox_right.Items.Clear();
+                listbox_right.Items.AddRange(allfiles);
+                Dot_right();
+                text_box_left.Text = Directory.GetParent(text_box_left.Text).ToString();
+                allfiles = Directory.GetFileSystemEntries(text_box_left.Text);
+                listbox_left.Items.Clear();
+                listbox_left.Items.AddRange(allfiles);
+                Dot_left();
+            }
+
+        }
+        private void Copy_Click(object sender, EventArgs e)
+        {
+            string sourcePath = "";
+            string fName = "";
+            string backupDir = "";
+            if (last_list_was_selected == 0) //left
+            {
+                if (!IsPathDirectory(text_box_left.Text))
+                {
+                    FileInfo fi = new FileInfo(text_box_left.Text);
+                    fName = fi.Name;
+                    sourcePath = text_box_left.Text;
+                    if (!IsPathDirectory(text_box_right.Text))
+                    {
+                        text_box_right.Text = Directory.GetParent(text_box_right.Text).ToString();
+                    }
+                    backupDir = text_box_right.Text + "/" + fName;
+                }
+                if (!IsPathDirectory(sourcePath) && !IsPathDirectory(backupDir))
+                {
+                    File.Copy(sourcePath, backupDir, true);
+
+                    string[] allfiles = Directory.GetFileSystemEntries(text_box_right.Text);
+                    listbox_right.Items.Clear();
+                    listbox_right.Items.AddRange(allfiles);
+                    Dot_right();
+                    text_box_left.Text = Directory.GetParent(text_box_left.Text).ToString();
+                    allfiles = Directory.GetFileSystemEntries(text_box_left.Text);
+                    listbox_left.Items.Clear();
+                    listbox_left.Items.AddRange(allfiles);
+                    Dot_left();
+                }
+                else
+                {
+                    MessageBox.Show("Can't copy files");
+                }
+            }
+            else //right
+            {
+                if (!IsPathDirectory(text_box_right.Text))
+                {
+                    FileInfo fi = new FileInfo(text_box_right.Text);
+                    fName = fi.Name;
+                    sourcePath = text_box_right.Text;
+                    if (!IsPathDirectory(text_box_left.Text))
+                    {
+                        text_box_left.Text = Directory.GetParent(text_box_left.Text).ToString();
+                    }
+                    backupDir = text_box_left.Text + "/" + fName;
+                }
+                if (!IsPathDirectory(sourcePath) && !IsPathDirectory(backupDir))
+                {
+                    File.Copy(sourcePath, backupDir, true);
+
+                    string[] allfiles = Directory.GetFileSystemEntries(text_box_left.Text);
+                    listbox_left.Items.Clear();
+                    listbox_left.Items.AddRange(allfiles);
+                    text_box_right.Text = Directory.GetParent(text_box_right.Text).ToString();
+                    allfiles = Directory.GetFileSystemEntries(text_box_right.Text);
+                    listbox_right.Items.Clear();
+                    listbox_right.Items.AddRange(allfiles);
+                }
+                else
+                {
+                    MessageBox.Show("Can't copy files");
+                }
+            }
+        }
+
+        private void Delete_Click(object sender, EventArgs e)
+        {
+            if (last_list_was_selected == 0)  //it's left
+            {
+                if (!IsPathDirectory(text_box_left.Text))
+                {
+                    File.Delete(text_box_left.Text);
+                    MessageBox.Show("File deleted");
+                    text_box_left.Text = Directory.GetParent(text_box_left.Text).ToString();
+                    string[] allfiles = Directory.GetFileSystemEntries(text_box_left.Text);
+                    listbox_left.Items.Clear();
+                    listbox_left.Items.AddRange(allfiles);
+                    Dot_left();
+                }
+            }
+            else
+            {
+                if (!IsPathDirectory(text_box_right.Text))
+                {
+                    File.Delete(text_box_right.Text);
+                    MessageBox.Show("File deleted");
+                    text_box_right.Text = Directory.GetParent(text_box_right.Text).ToString();
+                    string[] allfiles = Directory.GetFileSystemEntries(text_box_right.Text);
+                    listbox_right.Items.Clear();
+                    listbox_right.Items.AddRange(allfiles);
+                }
+
+            }
+        }
+
+        private void Back_Click(object sender, EventArgs e)
+        {
+            back_fun();
+        }
+
+        private Boolean isRoot(string path)
+        {
+            DirectoryInfo d = new DirectoryInfo(path);
+            if (d.Parent == null) { return true; }
+            else
+            {
+                return false;
+            }
+        }
+
+        private void Dot_left()
+        {
+            listbox_left.Items.Add(".");
+            listbox_left.Items.Add("..");
+        }
+        private void Dot_right()
+        {
+            listbox_right.Items.Add(".");
+            listbox_right.Items.Add("..");
+
+        }
+        private bool checkDot(string item)
+        {
+            if (item == ".")
+            {
+                back_fun();
+                return false;
+            }
+            else if (item == "..")
+            {
+                display_roots();
+                return false;
+            }
+            else
+            {
+                return true;
+            }
+        }
+        private void back_fun()
+        {
+            if (last_list_was_selected == 0)  //it's left
+            {
+
+                var string1 = text_box_left.Text;
+                if (!string1.Contains(@"\\"))
+                {
+
+                    string1 = string1.Insert(2, @"\");
+                }
+
+                text_box_left.Text = string1;
+                if (!isRoot(text_box_left.Text))
+                {
+                    text_box_left.Text = Directory.GetParent(text_box_left.Text).ToString();
+                    string[] allfiles = Directory.GetFileSystemEntries(text_box_left.Text);
+                    listbox_left.Items.Clear();
+                    listbox_left.Items.AddRange(allfiles);
+                    Dot_left();
+                }
+                else
+                {
+                    listbox_left.Items.Clear();
+                    this.listbox_left.Items.AddRange(DriveInfo.GetDrives());
+                    text_box_left.Text = "";
+                }
+            }
+            else // it's right list 
+            {
+                var string1 = text_box_right.Text;
+                if (!string1.Contains(@"\\"))
+                {
+
+                    string1 = string1.Insert(2, @"\");
+                }
+                text_box_right.Text = string1;
+                if (!isRoot(text_box_right.Text))
+                {
+                    text_box_right.Text = Directory.GetParent(text_box_right.Text).ToString();
+                    string[] allfiles = Directory.GetFileSystemEntries(text_box_right.Text);
+                    listbox_right.Items.Clear();
+                    listbox_right.Items.AddRange(allfiles);
+                    Dot_right();
+                }
+                else
+                {
+                    listbox_right.Items.Clear();
+                    this.listbox_right.Items.AddRange(DriveInfo.GetDrives());
+                    text_box_right.Text = "";
+                }
+            }
+        }
+        private void display_roots ()
+        {
+            if (last_list_was_selected == 0)  //it's left
+            {
+
+                    listbox_left.Items.Clear();
+                    this.listbox_left.Items.AddRange(DriveInfo.GetDrives());
+                    text_box_left.Text = "";
+                
+            }
+            else // it's right list 
+            {
+                    listbox_right.Items.Clear();
+                    this.listbox_right.Items.AddRange(DriveInfo.GetDrives());
+                    text_box_right.Text = "";
+                
+            }
+
+        }
+    }
+
+}
